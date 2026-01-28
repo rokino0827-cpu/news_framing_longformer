@@ -1,0 +1,90 @@
+project:
+  name: "sv2000_frame_monitoring"
+  seed: 42
+  output_dir: "reports"
+  ckpt_dir: "checkpoints"
+
+data:
+  train_path: "data/train.parquet"
+  valid_path: "data/valid.parquet"
+  test_path: "data/test.parquet"
+  text_fields: ["title", "content"]
+  id_field: "article_id"
+  frame_defs:
+    conflict:
+      - "sv_conflict_q1_reflects_disagreement"
+      - "sv_conflict_q2_disagreement_between_parties"
+      - "sv_conflict_q3_conflict_between_groups"
+      - "sv_conflict_q4_conflict_between_individuals"
+    human:
+      - "sv_human_q1_human_example_or_face"
+      - "sv_human_q2_human_story_or_experience"
+      - "sv_human_q3_emotional_angle"
+      - "sv_human_q4_personal_vignettes"
+      - "sv_human_q5_human_consequences"
+    econ:
+      - "sv_econ_q1_financial_losses_gains"
+      - "sv_econ_q2_costs_degree_expense"
+      - "sv_econ_q3_economic_consequences"
+    moral:
+      - "sv_moral_q1_moral_message"
+      - "sv_moral_q2_social_prescriptions"
+      - "sv_moral_q3_specific_social_groups"
+    resp:
+      - "sv_resp_q1_government_ability_solve"
+      - "sv_resp_q2_government_responsibility"
+      - "sv_resp_q3_individual_responsibility"
+      - "sv_resp_q4_problem_requires_action"
+      - "sv_resp_q5_action_efficacy"
+
+label:
+  regression_agg: "mean"  # mean|weighted_mean
+  normalize: "minmax_0_1"  # none|minmax_0_1|zscore
+  presence_threshold: 0.1  # y_reg >= threshold => positive
+
+model:
+  backbone: "longformer"  # longformer|bigbird|hat
+  pretrained_name: "allenai/longformer-base-4096"
+  max_length: 4096
+  use_title: true
+  long_text_strategy: "truncate_head_tail"  # truncate_head_tail|sliding_window_pool
+  global_attention: "cls"  # cls|first_k
+  num_global_tokens: 1
+  dropout: 0.1
+
+training:
+  epochs: 10
+  batch_size: 1
+  grad_accum_steps: 8
+  lr: 2e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.06
+  max_grad_norm: 1.0
+  mixed_precision: "bf16"  # fp16|bf16|no
+  early_stopping:
+    enabled: true
+    metric: "overall_alignment"
+    mode: "max"
+    patience: 3
+
+loss:
+  reg_loss: "huber"  # mse|huber
+  reg_weight: 1.0
+  cls_loss: "bce"  # bce|focal
+  cls_weight: 1.0
+  class_balance:
+    enabled: true
+    pos_weight_strategy: "inverse_freq"  # inverse_freq|sqrt_inv_freq|none
+
+eval:
+  metrics:
+    - "overall_alignment"
+    - "pearson"
+    - "r2"
+    - "mae"
+    - "auc_roc"
+    - "auc_pr"
+    - "precision"
+    - "recall"
+  threshold_strategy: "per_frame_opt_f1"  # fixed|per_frame_opt_f1|per_frame_opt_pr
+  fixed_threshold: 0.5
