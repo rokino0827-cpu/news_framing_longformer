@@ -45,12 +45,40 @@ label:
 model:
   backbone: "longformer"  # longformer|bigbird|hat
   pretrained_name: "allenai/longformer-base-4096"
-  max_length: 4096
+  
+  # EXPLICIT long text processing parameters - MUST be written to config
+  max_length: 4096                      # EXPLICIT: tokenizer max_length
+  long_text_strategy: "sliding_window_pool"  # EXPLICIT: truncate_head_tail|sliding_window_pool|hierarchical_attention
+  chunk_size: 512                       # EXPLICIT: chunk size for sliding window
+  stride: 256                           # EXPLICIT: stride for overlapping chunks
+  chunk_aggregation: "attention"        # EXPLICIT: mean|max|attention aggregation
+  preserve_title_priority: true        # EXPLICIT: prioritize title/lede
+  head_tokens: 256                      # For truncate_head_tail strategy
+  tail_tokens: 256                      # For truncate_head_tail strategy
+  
+  # EXPLICIT aggregation rules for different outputs
+  regression_aggregation: "attention"   # How to aggregate regression scores
+  classification_aggregation: "max"     # How to aggregate existence probabilities
+  
+  # Processing validation and logging
+  log_processing_stats: true            # Log token statistics
+  validate_content_preservation: true   # Ensure 90% content preservation
+  
+  # Model configuration
   use_title: true
-  long_text_strategy: "truncate_head_tail"  # truncate_head_tail|sliding_window_pool
   global_attention: "cls"  # cls|first_k
   num_global_tokens: 1
   dropout: 0.1
+  
+  # EXPLICIT loss weights
+  loss_weights:
+    regression_vs_classification: 0.7   # Weight for regression vs classification loss
+    frame_weights:                      # Per-frame weights
+      conflict: 1.0
+      human: 1.0
+      econ: 1.0
+      moral: 1.2                        # Higher weight for challenging frames
+      resp: 1.1
 
 training:
   epochs: 10
