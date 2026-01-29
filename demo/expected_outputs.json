@@ -1,0 +1,89 @@
+{
+  "regression_scores": {
+    "demo_001": {
+      "conflict": 0.675,
+      "human": 0.4,
+      "econ": 0.8,
+      "moral": 0.3,
+      "resp": 0.58
+    },
+    "demo_002": {
+      "conflict": 0.175,
+      "human": 0.82,
+      "econ": 0.3,
+      "moral": 0.3,
+      "resp": 0.64
+    },
+    "demo_003": {
+      "conflict": 0.05,
+      "human": 0.12,
+      "econ": 0.8,
+      "moral": 0.067,
+      "resp": 0.22
+    },
+    "demo_004": {
+      "conflict": 0.15,
+      "human": 0.32,
+      "econ": 0.2,
+      "moral": 0.8,
+      "resp": 0.46
+    },
+    "demo_005": {
+      "conflict": 0.425,
+      "human": 0.3,
+      "econ": 0.5,
+      "moral": 0.233,
+      "resp": 0.78
+    }
+  },
+  "binary_labels": {
+    "demo_001": {
+      "conflict": 1,
+      "human": 1,
+      "econ": 1,
+      "moral": 1,
+      "resp": 1
+    },
+    "demo_002": {
+      "conflict": 1,
+      "human": 1,
+      "econ": 1,
+      "moral": 1,
+      "resp": 1
+    },
+    "demo_003": {
+      "conflict": 0,
+      "human": 1,
+      "econ": 1,
+      "moral": 0,
+      "resp": 1
+    },
+    "demo_004": {
+      "conflict": 1,
+      "human": 1,
+      "econ": 1,
+      "moral": 1,
+      "resp": 1
+    },
+    "demo_005": {
+      "conflict": 1,
+      "human": 1,
+      "econ": 1,
+      "moral": 1,
+      "resp": 1
+    }
+  },
+  "metadata": {
+    "num_articles": 5,
+    "frame_names": [
+      "conflict",
+      "human",
+      "econ",
+      "moral",
+      "resp"
+    ],
+    "threshold": 0.1,
+    "aggregation": "mean",
+    "normalization": "none"
+  }
+}

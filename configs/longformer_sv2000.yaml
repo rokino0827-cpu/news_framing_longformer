@@ -38,47 +38,110 @@ data:
       - "sv_resp_q5_action_efficacy"
 
 label:
-  regression_agg: "mean"  # mean|weighted_mean
+  # ===== SV2000 LABEL CONSTRUCTION RULES =====
+  # CRITICAL: These rules define how 20 SV2000 items map to 5 frame dimensions
+  # This mapping MUST be consistent across all experiments for reproducibility
+  
+  # Aggregation method for combining multiple items into frame scores
+  regression_agg: "mean"  # mean|weighted_mean|median
+  
+  # Normalization strategy for regression targets
   normalize: "minmax_0_1"  # none|minmax_0_1|zscore
-  presence_threshold: 0.1  # y_reg >= threshold => positive
+  
+  # Threshold for converting regression scores to binary presence labels
+  presence_threshold: 0.1  # y_reg >= threshold => positive class
+  
+  # ===== LABEL CONSTRUCTION PIPELINE =====
+  # Step 1: Item-level scores (20 dimensions) -> Frame-level scores (5 dimensions)
+  # Step 2: Frame-level normalization (if enabled)
+  # Step 3: Binary presence detection (regression -> classification)
+  
+  # ===== FRAME COMPOSITION RULES =====
+  # Each frame is composed of specific SV2000 questionnaire items
+  # These mappings are based on the SV2000 theoretical framework
+  frame_composition:
+    conflict:
+      items: 4                          # Number of items in this frame
+      theoretical_basis: "Disagreement and conflict between parties/groups/individuals"
+      aggregation_notes: "All items equally weighted in mean aggregation"
+    human:
+      items: 5                          # Number of items in this frame  
+      theoretical_basis: "Human interest, personal stories, emotional angles"
+      aggregation_notes: "All items equally weighted in mean aggregation"
+    econ:
+      items: 3                          # Number of items in this frame
+      theoretical_basis: "Economic consequences, costs, financial impacts"
+      aggregation_notes: "All items equally weighted in mean aggregation"
+    moral:
+      items: 3                          # Number of items in this frame
+      theoretical_basis: "Moral messages, social prescriptions, group references"
+      aggregation_notes: "All items equally weighted in mean aggregation"
+    resp:
+      items: 5                          # Number of items in this frame
+      theoretical_basis: "Responsibility attribution, efficacy, action requirements"
+      aggregation_notes: "All items equally weighted in mean aggregation"
+  
+  # ===== QUALITY CONTROL =====
+  # Validation rules for label construction
+  min_valid_items_per_frame: 1          # Minimum non-NaN items required per frame
+  handle_missing_strategy: "zero_fill"  # zero_fill|skip_sample|interpolate
+  validate_score_ranges: true           # Ensure scores are in expected ranges
+  expected_score_range: [0.0, 1.0]     # Expected range after normalization
 
 model:
   backbone: "longformer"  # longformer|bigbird|hat
   pretrained_name: "allenai/longformer-base-4096"
   
-  # EXPLICIT long text processing parameters - MUST be written to config
-  max_length: 4096                      # EXPLICIT: tokenizer max_length
+  # ===== EXPLICIT LONG TEXT PROCESSING PARAMETERS =====
+  # These parameters are CRITICAL for reproducibility and must be documented
+  max_length: 4096                      # EXPLICIT: tokenizer max_length (Longformer limit)
   long_text_strategy: "sliding_window_pool"  # EXPLICIT: truncate_head_tail|sliding_window_pool|hierarchical_attention
-  chunk_size: 512                       # EXPLICIT: chunk size for sliding window
-  stride: 256                           # EXPLICIT: stride for overlapping chunks
-  chunk_aggregation: "attention"        # EXPLICIT: mean|max|attention aggregation
-  preserve_title_priority: true        # EXPLICIT: prioritize title/lede
-  head_tokens: 256                      # For truncate_head_tail strategy
-  tail_tokens: 256                      # For truncate_head_tail strategy
   
-  # EXPLICIT aggregation rules for different outputs
-  regression_aggregation: "attention"   # How to aggregate regression scores
-  classification_aggregation: "max"     # How to aggregate existence probabilities
+  # Sliding window parameters (for articles averaging 3600+ words)
+  chunk_size: 512                       # EXPLICIT: chunk size for sliding window (tokens)
+  stride: 256                           # EXPLICIT: stride for overlapping chunks (50% overlap)
+  chunk_aggregation: "attention"        # EXPLICIT: mean|max|attention aggregation across chunks
   
-  # Processing validation and logging
-  log_processing_stats: true            # Log token statistics
-  validate_content_preservation: true   # Ensure 90% content preservation
+  # Head-tail truncation parameters (fallback strategy)
+  preserve_title_priority: true        # EXPLICIT: prioritize title/lede in truncation
+  head_tokens: 512                      # For truncate_head_tail strategy (preserve beginning)
+  tail_tokens: 512                      # For truncate_head_tail strategy (preserve ending)
   
-  # Model configuration
+  # ===== EXPLICIT AGGREGATION RULES FOR MULTI-TASK OUTPUTS =====
+  # Different aggregation strategies for regression vs classification
+  regression_aggregation: "attention"   # How to aggregate regression scores across chunks
+  classification_aggregation: "max"     # How to aggregate existence probabilities across chunks
+  
+  # ===== PROCESSING VALIDATION AND LOGGING =====
+  log_processing_stats: true            # Log token statistics for debugging
+  validate_content_preservation: true   # Ensure 90%+ content preservation after processing
+  min_content_preservation: 0.90        # Minimum content preservation ratio
+  
+  # ===== TOKEN BUDGET ALLOCATION =====
+  # For sliding window: how to allocate tokens within each chunk
+  title_token_budget: 64                # Max tokens reserved for title in each chunk
+  content_token_budget: 448             # Remaining tokens for content (512 - 64)
+  
+  # ===== ATTENTION CONFIGURATION =====
+  # Longformer-specific attention settings
+  
+  # ===== ATTENTION CONFIGURATION =====
+  # Longformer-specific attention settings
   use_title: true
-  global_attention: "cls"  # cls|first_k
+  global_attention: "cls"  # cls|first_k|title_and_cls
   num_global_tokens: 1
   dropout: 0.1
   
-  # EXPLICIT loss weights
+  # ===== EXPLICIT LOSS WEIGHTS =====
+  # Critical for handling multi-task learning and class imbalance
   loss_weights:
-    regression_vs_classification: 0.7   # Weight for regression vs classification loss
-    frame_weights:                      # Per-frame weights
-      conflict: 1.0
-      human: 1.0
-      econ: 1.0
-      moral: 1.2                        # Higher weight for challenging frames
-      resp: 1.1
+    regression_vs_classification: 0.7   # Weight for regression vs classification loss (0.7 reg, 0.3 cls)
+    frame_weights:                      # Per-frame weights based on difficulty/importance
+      conflict: 1.0                     # Baseline weight
+      human: 1.0                        # Baseline weight  
+      econ: 1.0                         # Baseline weight
+      moral: 1.2                        # Higher weight for challenging frame (low PR-AUC)
+      resp: 1.1                         # Slightly higher weight for challenging frame
 
 training:
   epochs: 10
@@ -105,14 +168,56 @@ loss:
     pos_weight_strategy: "inverse_freq"  # inverse_freq|sqrt_inv_freq|none
 
 eval:
+  # ===== COMPREHENSIVE EVALUATION METRICS =====
   metrics:
-    - "overall_alignment"
-    - "pearson"
-    - "r2"
-    - "mae"
-    - "auc_roc"
-    - "auc_pr"
-    - "precision"
-    - "recall"
-  threshold_strategy: "per_frame_opt_f1"  # fixed|per_frame_opt_f1|per_frame_opt_pr
-  fixed_threshold: 0.5
+    - "overall_alignment"               # Primary metric: mean Pearson correlation
+    - "pearson"                        # Per-frame Pearson correlations
+    - "r2"                             # Per-frame R² scores
+    - "mae"                            # Per-frame Mean Absolute Error
+    - "auc_roc"                        # Per-frame AUC-ROC for presence detection
+    - "auc_pr"                         # Per-frame AUC-PR for presence detection
+    - "precision"                      # Per-frame Precision
+    - "recall"                         # Per-frame Recall
+    - "f1"                             # Per-frame F1 score
+  
+  # ===== DUAL THRESHOLD STRATEGY FOR MONITORING =====
+  # Critical for operational deployment: different thresholds for different use cases
+  threshold_strategies:
+    # Strategy 1: High-recall monitoring (catch most potential cases)
+    monitor_thresholds:
+      strategy: "per_frame_opt_recall"  # Optimize for high recall
+      target_recall: 0.85               # Target recall level
+      fallback_threshold: 0.3           # Fallback if target not achievable
+      use_case: "Continuous monitoring, early warning system"
+      
+    # Strategy 2: High-precision alerting (minimize false positives)  
+    alert_thresholds:
+      strategy: "per_frame_opt_precision" # Optimize for high precision
+      target_precision: 0.8              # Target precision level
+      fallback_threshold: 0.7             # Fallback if target not achievable
+      use_case: "Human review triggers, actionable alerts"
+      
+    # Strategy 3: Balanced F1 optimization (research/evaluation)
+    balanced_thresholds:
+      strategy: "per_frame_opt_f1"        # Standard F1 optimization
+      fallback_threshold: 0.5             # Standard 0.5 threshold
+      use_case: "Research evaluation, model comparison"
+  
+  # ===== DEFAULT THRESHOLD CONFIGURATION =====
+  # Which threshold strategy to use by default
+  default_threshold_strategy: "balanced_thresholds"
+  
+  # ===== EVALUATION OUTPUT CONFIGURATION =====
+  # Control what gets saved in evaluation reports
+  save_per_threshold_metrics: true      # Save metrics for all threshold strategies
+  save_confusion_matrices: true         # Save confusion matrices per frame
+  save_prediction_distributions: true   # Save histograms of prediction scores
+  save_calibration_plots: false         # Save reliability diagrams (optional)
+  
+  # ===== CONFIDENCE AND UNCERTAINTY =====
+  # Optional: uncertainty quantification for predictions
+  uncertainty_estimation:
+    enabled: false                      # Enable MC dropout or temperature scaling
+    method: "mc_dropout"                # mc_dropout|temperature_scaling
+    mc_samples: 10                      # Number of MC dropout samples
+    temperature_scaling: true           # Post-hoc calibration

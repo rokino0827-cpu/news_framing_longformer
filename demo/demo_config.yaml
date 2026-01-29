@@ -1,0 +1,53 @@
+data:
+  frame_defs:
+    conflict:
+    - sv_conflict_q1_reflects_disagreement
+    - sv_conflict_q2_disagreement_between_parties
+    - sv_conflict_q3_conflict_between_groups
+    - sv_conflict_q4_conflict_between_individuals
+    econ:
+    - sv_econ_q1_financial_losses_gains
+    - sv_econ_q2_costs_degree_expense
+    - sv_econ_q3_economic_consequences
+    human:
+    - sv_human_q1_human_example_or_face
+    - sv_human_q2_human_story_or_experience
+    - sv_human_q3_emotional_angle
+    - sv_human_q4_personal_vignettes
+    - sv_human_q5_human_consequences
+    moral:
+    - sv_moral_q1_moral_message
+    - sv_moral_q2_social_prescriptions
+    - sv_moral_q3_specific_social_groups
+    resp:
+    - sv_resp_q1_government_ability_solve
+    - sv_resp_q2_government_responsibility
+    - sv_resp_q3_individual_responsibility
+    - sv_resp_q4_problem_requires_action
+    - sv_resp_q5_action_efficacy
+  id_field: article_id
+  test_path: demo/test.parquet
+  text_fields:
+  - title
+  - content
+  train_path: demo/train.parquet
+  valid_path: demo/valid.parquet
+label:
+  normalize: none
+  presence_threshold: 0.1
+  regression_agg: mean
+model:
+  backbone: longformer
+  long_text_strategy: truncate_head_tail
+  max_length: 512
+  pretrained_name: allenai/longformer-base-4096
+  use_title: true
+project:
+  ckpt_dir: demo/checkpoints
+  name: sv2000_demo
+  output_dir: demo/reports
+  seed: 42
+training:
+  batch_size: 2
+  epochs: 2
+  lr: 2.0e-05
